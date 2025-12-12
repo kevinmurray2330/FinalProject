@@ -85,7 +85,7 @@ fun DinnerApp(viewModel: DinnerViewModel) {
     }
 }
 
-// --- Screens ---
+// Screens
 
 @Composable
 fun HomeScreen(navController: NavController, viewModel: DinnerViewModel) {
@@ -348,14 +348,13 @@ fun FamilyMemberCard(member: FamilyMember, viewModel: DinnerViewModel) {
     }
 }
 
-// --- Dialogs ---
+// Dialogs
 
 @Composable
 fun AddDinnerDialog(familyMembers: List<FamilyMember>, onDismiss: () -> Unit, onConfirm: (String, String, List<String>) -> Unit) {
     var date by remember { mutableStateOf("") }
     var time by remember { mutableStateOf("") }
 
-    // Multi-select state
     val selectedMembers = remember { mutableStateListOf<String>() }
 
     AlertDialog(
@@ -422,7 +421,7 @@ fun AddFamilyDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) 
     )
 }
 
-// --- Navigation Components ---
+// Navigation Components
 @Composable
 fun BottomNavigationBar(navController: NavController) {
     val items = listOf(

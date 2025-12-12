@@ -17,7 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
-// --- Entities ---
+// Entities
 @Entity(tableName = "dinners")
 data class Dinner(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -42,7 +42,7 @@ data class Topic(
     val lastUsed: Long = 0
 )
 
-// --- DAO ---
+// DAO
 @Dao
 interface DinnerDao {
     // Dinners
@@ -73,7 +73,7 @@ interface DinnerDao {
     suspend fun insertAllTopics(topics: List<Topic>)
 }
 
-// --- Database ---
+// Database
 @Database(entities = [Dinner::class, FamilyMember::class, Topic::class], version = 1, exportSchema = false)
 abstract class DinnerDatabase : RoomDatabase() {
     abstract fun dinnerDao(): DinnerDao

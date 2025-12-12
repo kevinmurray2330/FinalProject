@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 
 class DinnerViewModel(private val dao: DinnerDao) : ViewModel() {
 
-    // FIX: Added <Dinner> and <FamilyMember> to emptyList() so Kotlin knows the types.
     val allDinners = dao.getAllDinners().stateIn(
         scope = viewModelScope,
         started = SharingStarted.Lazily,
