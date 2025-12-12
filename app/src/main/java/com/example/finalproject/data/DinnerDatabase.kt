@@ -1,55 +1,116 @@
-package com.example.finalproject.ui
+package com.example.finalproject.data
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewModelScope
-import com.example.finalproject.data.Dinner
-import com.example.finalproject.data.DinnerDao
-import com.example.finalproject.data.FamilyMember
-import com.example.finalproject.data.Topic
+import android.content.Context
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Delete
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class DinnerViewModel(private val dao: DinnerDao) : ViewModel() {
+// --- Entities ---
+@Entity(tableName = "dinners")
+data class Dinner(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val date: String,
+    val time: String,
+    val attendees: String
+)
 
-    // Using stateIn to convert Flows to StateFlows for the UI
-    val allDinners = dao.getAllDinners().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-    val allFamilyMembers = dao.getAllFamilyMembers().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+@Entity(tableName = "family_members")
+data class FamilyMember(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val name: String,
+    val role: String,
+    val isOnline: Boolean = false
+)
 
-    // Actions
-    fun addDinner(date: String, time: String, attendees: List<String>) = viewModelScope.launch {
-        val attendeesString = attendees.joinToString(", ")
-        dao.insertDinner(Dinner(date = date, time = time, attendees = attendeesString))
-    }
+@Entity(tableName = "topics")
+data class Topic(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val text: String,
+    val category: String,
+    val lastUsed: Long = 0
+)
 
-    fun addFamilyMember(name: String, role: String) = viewModelScope.launch {
-        dao.insertFamilyMember(FamilyMember(name = name, role = role))
-    }
+// --- DAO ---
+@Dao
+interface DinnerDao {
+    // Dinners
+    @Query("SELECT * FROM dinners ORDER BY id DESC")
+    fun getAllDinners(): Flow<List<Dinner>>
 
-    fun deleteFamilyMember(member: FamilyMember) = viewModelScope.launch {
-        dao.deleteFamilyMember(member)
-    }
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDinner(dinner: Dinner)
 
-    fun toggleMemberStatus(member: FamilyMember) = viewModelScope.launch {
-        dao.updateMemberStatus(member.id, !member.isOnline)
-    }
+    // Family
+    @Query("SELECT * FROM family_members")
+    fun getAllFamilyMembers(): Flow<List<FamilyMember>>
 
-    // Helper to get a random topic on demand
-    fun getRandomTopic(onResult: (Topic?) -> Unit) = viewModelScope.launch {
-        val topic = dao.getRandomTopic()
-        onResult(topic)
-    }
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFamilyMember(member: FamilyMember)
+
+    @Query("UPDATE family_members SET isOnline = :status WHERE id = :id")
+    suspend fun updateMemberStatus(id: Int, status: Boolean)
+
+    @Delete
+    suspend fun deleteFamilyMember(member: FamilyMember)
+
+    // Topics
+    @Query("SELECT * FROM topics ORDER BY RANDOM() LIMIT 1")
+    suspend fun getRandomTopic(): Topic?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllTopics(topics: List<Topic>)
 }
 
-// Factory to create ViewModel with Dependencies
-class DinnerViewModelFactory(private val dao: DinnerDao) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(DinnerViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return DinnerViewModel(dao) as T
+// --- Database ---
+@Database(entities = [Dinner::class, FamilyMember::class, Topic::class], version = 1, exportSchema = false)
+abstract class DinnerDatabase : RoomDatabase() {
+    abstract fun dinnerDao(): DinnerDao
+
+    companion object {
+        @Volatile
+        private var Instance: DinnerDatabase? = null
+
+        fun getDatabase(context: Context, scope: CoroutineScope): DinnerDatabase {
+            return Instance ?: synchronized(this) {
+                Room.databaseBuilder(context, DinnerDatabase::class.java, "dinner_db")
+                    .addCallback(DinnerDatabaseCallback(scope))
+                    .fallbackToDestructiveMigration()
+                    .build()
+                    .also { Instance = it }
+            }
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+
+    private class DinnerDatabaseCallback(private val scope: CoroutineScope) : RoomDatabase.Callback() {
+        override fun onCreate(db: SupportSQLiteDatabase) {
+            super.onCreate(db)
+            Instance?.let { database ->
+                scope.launch(Dispatchers.IO) {
+                    populateTopics(database.dinnerDao())
+                }
+            }
+        }
+
+        suspend fun populateTopics(dao: DinnerDao) {
+            val initialTopics = listOf(
+                Topic(text = "What was the best part of your day?", category = "Gratitude"),
+                Topic(text = "If you could have any superpower, what would it be?", category = "Creative"),
+                Topic(text = "What is one goal you want to achieve this week?", category = "Goals"),
+                Topic(text = "Tell us a funny joke!", category = "Random")
+            )
+            dao.insertAllTopics(initialTopics)
+        }
     }
 }
