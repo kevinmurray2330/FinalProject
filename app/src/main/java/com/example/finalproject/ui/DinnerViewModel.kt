@@ -3,15 +3,28 @@ package com.example.finalproject.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.finalproject.data.Dinner
+import com.example.finalproject.data.DinnerDao
+import com.example.finalproject.data.FamilyMember
+import com.example.finalproject.data.Topic
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class DinnerViewModel(private val dao: DinnerDao) : ViewModel() {
 
-    // Using stateIn to convert Flows to StateFlows for the UI
-    val allDinners = dao.getAllDinners().stateIn(viewModelScope, SharingStarted.Companion.Lazily, emptyList())
-    val allFamilyMembers = dao.getAllFamilyMembers().stateIn(viewModelScope, SharingStarted.Companion.Lazily, emptyList())
+    // FIX: Added <Dinner> and <FamilyMember> to emptyList() so Kotlin knows the types.
+    val allDinners = dao.getAllDinners().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Lazily,
+        initialValue = emptyList<Dinner>()
+    )
+
+    val allFamilyMembers = dao.getAllFamilyMembers().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Lazily,
+        initialValue = emptyList<FamilyMember>()
+    )
 
     // Actions
     fun addDinner(date: String, time: String, attendees: List<String>) = viewModelScope.launch {
